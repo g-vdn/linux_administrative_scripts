@@ -32,7 +32,7 @@ REQ=("realpath" "basename" "printf" "whoami" "tput") # required installed comman
 
 sep() {
     # custom separator, screen width
-    for i in $(seq $(tput cols));do echo -n "${1}";done
+    for i in $(seq $(tput cols));do printf "${1}";done
 }
 
 usage() {
