@@ -60,31 +60,31 @@ create_file_and_header() {
 
 # Format the output and write it to a file.
 printf "\
-%-20s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%-20s%-12s\n\
-%s\
+%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-20s%-5s%-s\n\
+%-s\
 \n\n\n\
 " \
 '#!/bin/bash' \
-'# Title' ": ${NAME}" \
-'# Description' ": ${DESCR}" \
-'# Author' ": ${AUTHOR}" \
-'# E-Mail' ": ${E_MAIL}" \
-'# Creation Date' ": ${TODAY}" \
-'# Latest Update' ': N/A' \
-'# Version' ": ${VER}" \
-'# Usage' ": ./${NAME}" \
-'# Notes' ': N/A' \
-'# Bash Version' ": ${BASH_VERSION}" \
+'# Title' ':' "${NAME}" \
+'# Description' ':' "${DESCR}" \
+'# Author' ':' "${AUTHOR}" \
+'# E-Mail' ':' "${E_MAIL}" \
+'# Creation Date' ':' "${TODAY}" \
+'# Latest Update' ':' 'N/A' \
+'# Version' ':' "${VER}" \
+'# Usage' ':' "./${NAME}" \
+'# Notes' ':' 'N/A' \
+'# Bash Version' ':' "${BASH_VERSION}" \
 "# ${SEPARATOR}${SEPARATOR}" \
 > "${NAME}"
 
