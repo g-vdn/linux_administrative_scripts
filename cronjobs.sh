@@ -4,7 +4,7 @@
 # Author            : gvdn       
 # E-Mail            : contact@gvdn.cz       
 # Creation Date     : 18-August-2021
-# Latest Update     : 27-March-2022       
+# Latest Update     : 03-April-2022
 # Version           : 1.1       
 # Usage             : sudo ./cronjobs.sh
 # Notes             : Script with administrative purpose
@@ -28,7 +28,12 @@ FIRST='0' # will display a message first time the script is run. To reset, chang
 # Do not modify anything under this line or script may break #
 ##############################################################
 
+###########################
+# Variables and functions #
+###########################
+
 REQ=("realpath" "basename" "printf" "whoami" "tput") # required installed commands
+INSTALL=false # set INSTALL by default to false
 
 sep() {
     # custom separator, screen width
@@ -101,7 +106,7 @@ fi
 # Get the user option
 while getopts ih OPTION; do
     case ${OPTION} in
-        i) INSTALL='true' ;;
+        i) INSTALL=true ;;
         h) usage 
            exit 0
            ;;
