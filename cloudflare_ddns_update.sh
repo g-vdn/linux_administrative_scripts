@@ -4,8 +4,8 @@
 # Author            : gvdn      
 # E-Mail            : contact@gvdn.cz
 # Creation Date     : 30-March-2022
-# Latest Update     : N/A       
-# Version           : 0.1       
+# Latest Update     : 04-April-2022       
+# Version           : 0.2       
 # Usage             : ./cloudflare_ddns_update.sh
 # Notes             : N/A       
 # Bash Version      : 5.0.3(1)-release
@@ -15,28 +15,21 @@
 # User variables - need to be modified #
 ########################################
 
-# Cloudflare API key
-API='1234567890abcdefghijklmnopqrstuvwxyz1234' 
+API='' # Cloudflare API key. Ex.: 'jg2-AlOvr3EMuokCxv0A7SOclda4yhk1pMLP_gFf'
 
-# E-Mail used to login on Cloudflare account
-E_MAIL='john.doe@example.com' 
+E_MAIL='' # E-Mail used to login on Cloudflare account. Ex.: john.doe@example.com
 
-# Domain for which to update the DNS record
-ZONE='example.com' 
+ZONE='' # Domain for which to update the DNS record. Ex.: example.com
 
-# Sub-domain for which the IP update should take place. 
-RECORD="${ZONE}"                        # If no sub-domain present, leave as is. IP update will be done for main domain.
-# RECORD='subdomain.example.com'        # Uncomment this line and comment above one if the IP update should take place 
-                                        # for a sub-domain instead of main domain.
+SUBZONE='' # Sub-domain for which the IP update should take place. Leave empty if no sub-domain present. 
+           # Write only the sub-domain name, not the full domain. 
+           # Ex.: if you have test.example.com you will write only test
 
-# true or false - if it is requested to proxify the sub-domain through cloudflare
-PROXIED='true'
+PROXIED='' # true or false - if it is requested to proxify the sub-domain through cloudflare 
 
-# A or AAAA - DNS Record type you want to update for the domain or sub-domain
-TYPE='A' 
+TYPE='' # A (IPv4) or AAAA (IPv6) - the DNS Record type with which you want to update the domain or sub-domain
 
-# Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'
-TTL='1' 
+TTL='' # Time to live, in seconds, of the DNS record. Must be between 60 and 86400, or 1 for 'automatic'
 
 ##########################################################################
 # !!!!! Do not change anything under this line or script may break !!!!! #
@@ -51,13 +44,22 @@ GET='curl -s -X GET'
 PUT='curl -s -X PUT'
 ENDPOINT='https://api.cloudflare.com/client/v4/'
 HEADERS="-H \"X-Auth-Email: ${E_MAIL}\" -H \"Authorization: Bearer ${API}\" -H \"Content-Type: application/json\""
+AUTH="-H \"Authorization: Bearer ${API}\""
 
-# Set VERBOSE and LOG to false unless otherwise stated by user
+# Default to false unless otherwise stated by the user via options
 VERBOSE=false 
 CREATE_LOG=false
+FORCED=false
 
 # Log filename
 LOG_NAME="cddns_$(date '+%d%m%y_%H%M%S').log"
+
+# Build sub-domain
+if [[ -z "${SUBZONE}" ]]; then
+    RECORD="${ZONE}"
+else
+    RECORD="${SUBZONE}.${ZONE}"
+fi
 
 logit() {
     # Function to log script output
@@ -86,6 +88,7 @@ printf "\
 %-26s%-s\n\
 %-26s%-s\n\
 %-5s %-15s%-5s%-s\n\
+%-5s %-15s%-5s%-s\n\
 " \
 "Usage: $(basename ${0}) [-vh] [-l] [ARG]" \
 "Note: Running the script without any option(s) will print only error message(s) and/or final script output." \
@@ -94,25 +97,20 @@ printf "\
 "-l" "[log path]" "-" "Write the output to a file. If [log path] not specified, current directory is used." \
 "" "with [log path] specified, output is written to that path." \
 "" "Specify only /path/to/dir , filename is automatically filled in format: 'cddns_DDMMYY_HHMM.log'" \
+"-f" "forced mode" "-" "If DNS record type indicated by user doesn't match with the one on Cloudflare ('A' <-> 'AAAA'), using '-f' will overwrite it." \
 "-h" "help" "-" "Shows this help and exit."
 
 }
 
 # Parse input from user
-while getopts vlh OPTION; do
+while getopts vlfh OPTION; do
     case ${OPTION} in
         v) VERBOSE=true ;;
         l) CREATE_LOG=true ;;
-        h) 
-            usage 
-            exit 0
-            ;;
-        *) 
-           usage
-           exit 1
-           ;;
+        f) FORCED=true ;;
+        h) usage; exit 0 ;;
+        *) usage; exit 1 ;;
     esac
-
 done
 
 shift "$(( OPTIND - 1 ))" # make sure only argumens are left, no options
@@ -139,12 +137,15 @@ else
     LOG_FILE='/dev/null'
 fi
 
-# Create header for each time the script is run
-H_TXT="$(date '+%d-%b-%Y / %H:%M') - Starting $(basename ${0})"
-H_LEN="${#H_TXT}"
-logit DEF "$(for i in $(seq ${H_LEN}); do printf '#';done)"
-logit DEF "${H_TXT}"
-logit DEF "$(for i in $(seq ${H_LEN}); do printf '#';done)"
+# Create header if verbose is selected
+if ${VERBOSE}; then
+    H_TXT="$(date '+%d-%b-%Y / %H:%M') - Starting $(basename ${0})"
+    H_LEN="${#H_TXT}"
+    logit DEF "$(for i in $(seq ${H_LEN}); do printf '#';done)"
+    logit DEF "${H_TXT}"
+    logit DEF "$(for i in $(seq ${H_LEN}); do printf '#';done)"
+    ${FORCED} && logit DEF "!!! FORCED MODE ENABLED !!! --> records will be overwritten even if they don't match!"
+fi
 
 # Check for required commands to be available
 logit INFO "Checking for required commands to be installed."
@@ -170,18 +171,11 @@ fi
 # Check if all mandatory variables were filled in correctly
 logit INFO "Checking validity for mandatory variables."
 
-if [[ -z ${API} || -z ${E_MAIL} || -z ${ZONE} || -z ${RECORD} || -z ${PROXIED} || -z ${TYPE} || -z ${TTL} ]]; then
+if [[ -z ${API} || -z ${E_MAIL} || -z ${ZONE} || -z ${PROXIED} || -z ${TYPE} || -z ${TTL} ]]; then
     logit ERROR "ERROR: One or more mandatory variables are empty." >&2
-    exit 1
-elif [[ ${API} = '1234567890abcdefghijklmnopqrstuvwxyz1234' || ${E_MAIL} = 'john.doe@example.com' \
-|| ${ZONE} = 'example.com' ]]; then
-    logit ERROR "ERROR: One or more mandatory variables are left as default." >&2
     exit 1
 elif ! [[ ${PROXIED} = 'true' || ${PROXIED} = 'false' ]]; then
     logit ERROR "ERROR: PROXIED value is wrong. Must be either 'true' or 'false'" >&2
-    exit 1
-elif ! [[ ${TYPE} = 'A' || ${TYPE} = 'AAAA' ]]; then
-    logit ERROR "ERROR: TYPE value is wrong. Must be either 'A' or 'AAAA'" >&2
     exit 1
 elif ! [[ ${TTL} -ge 60 && ${TTL} -le 86400 ]] &> /dev/null && ! [[ ${TTL} -eq 1 ]] &> /dev/null; then
     logit ERROR "ERROR: TTL value is wrong. Must be either 1 or between 60 and 86400." >&2
@@ -211,47 +205,47 @@ fi
 
 # Check API key
 logit INFO "Checking API token validity..."
+VERIFY_TOKEN_URL="'${ENDPOINT}user/tokens/verify'"
+VERIFY_TOKEN_COM="${GET} ${VERIFY_TOKEN_URL} ${AUTH}"
 
-if ! curl -s -X GET https://api.cloudflare.com/client/v4/user/tokens/verify -H "Authorization: Bearer ${API}"| grep -q '"success":true'; then
+if ! $(eval "${VERIFY_TOKEN_COM}" | grep -q '"success":true'); then
     logit ERROR "ERROR: API token verification failed. Check API token value." >&2
     exit 1
 else
     logit INFO "API token seems valid."
 fi
 
-# Check systems IPv4 public IP
-logit INFO "Checking for IPv4..."
-
-IPv4=$(curl -s -X GET -4 https://ifconfig.co || curl -s -X GET -4 https://icanhazip.com)
-
-if [[ -n ${IPv4} ]]; then 
-    logit INFO "Detected IPv4: ${IPv4}"
-else 
-    logit INFO "No IPv4 detected."
-fi
-
-# Check systems IPv6 public IP
-logit INFO "Checking for IPv6..."
-
-IPv6=$(curl -s -X GET -6 https://ifconfig.co || curl -s -X GET -6 https://icanhazip.com)
-
-if [[ -n ${IPv6} ]]; then 
-    logit INFO "Detected IPv6: ${IPv6}"
-else 
-    logit INFO "No IPv6 detected."
-fi
+# Check systems public IPv4 and IPv6 IPs
+logit INFO "Check systems public IPv4 and IPv6 IPs."
+for IP in IPv4 IPv6; do
+    logit INFO "Checking for ${IP}..."
+    eval ${IP}="$(curl -s -X GET -${IP:(-1)} https://ifconfig.co || curl -s -X GET -${IP:(-1)}  https://icanhazip.com)"
+    if [[ -n ${!IP} ]]; then 
+        logit INFO "Found: ${!IP}"
+    else 
+        logit INFO "No ${IP} detected."
+    fi
+done
 
 # Check TYPE variable
-logit INFO "Checking user specified DNS record TYPE to update."
+logit INFO "Checking user specified DNS record type to update."
 
 case ${TYPE} in
        A) IP=${IPv4} 
           logit INFO "DNS Record type 'A' detected."
           ;;
-    AAAA) IP=${IPv6}
+    AAAA) #IP=${IPv6}
+          IP='2806:1016:c:a1a6:73a2:d0a6:d8c8:a2a3'
           logit INFO "DNS Record type 'AAAA' detected."
           ;;
+       *) logit ERROR "ERROR: TYPE value is wrong: '${TYPE}'. Must be either 'A' or 'AAAA'" >&2; exit 1 ;;
 esac
+
+# If IP empty, means that DNS record type selected not present on system
+if [[ -z ${IP} ]]; then 
+    logit ERROR "ERROR: User selected DNS record type: '${TYPE}' but this type of IP is not present on system." >&2
+    exit 1
+fi
 
 #################
 # Actual script #
@@ -274,10 +268,11 @@ fi
 # Obtain DNS record ID and IP
 logit INFO "Retrieving DNS record ID and IP for sub-domain ${RECORD} from Cloudflare..."
 
-DNS_RECORD_URL="'${ENDPOINT}zones/${ZONE_ID}/dns_records?name=${RECORD}&type=${TYPE}'"
+DNS_RECORD_URL="'${ENDPOINT}zones/${ZONE_ID}/dns_records?name=${RECORD}'"
 DNS_RECORD_COM="${GET} ${DNS_RECORD_URL} ${HEADERS}"
 DNS_RECORD_ID=$(eval "${DNS_RECORD_COM}" | grep -o -P '(?<="id":").+?(?=",")')
 DNS_RECORD_IP=$(eval "${DNS_RECORD_COM}" | grep -o -P '(?<="content":").+?(?=","proxiable")')
+DNS_RECORD_TYPE=$(eval "${DNS_RECORD_COM}" | grep -o -P '(?<="type":").+?(?=","content")')
 
 if [[ -n ${DNS_RECORD_ID} ]]; then
     logit INFO "DNS record ID found: ${DNS_RECORD_ID}"
@@ -290,6 +285,13 @@ if [[ -n ${DNS_RECORD_IP} ]]; then
     logit INFO "DNS record IP found: ${DNS_RECORD_IP}"
 else
     logit ERROR "ERROR: DNS record IP could not be retrieved for sub-domain '${RECORD}'!" >&2
+    exit 1
+fi
+
+# Check if user selected DNS record type matches the one already on Cloudflare
+${FORCED} || if [[ "${TYPE}" != "${DNS_RECORD_TYPE}" ]]; then
+    logit ERROR "ERROR: User selected DNS record type: '${TYPE}' doesn't match Cloudflare DNS record type: '${DNS_RECORD_TYPE}'" >&2
+    logit ERROR "ERROR: Use '-f' option to force override: '${0} -f'" >&2
     exit 1
 fi
 
@@ -312,7 +314,6 @@ else
     logit DEF "Systems IP and DNS record IP on Cloudflare match ${IP} No update required."
     exit 0
 fi
-
 
 # If reached this step, provide an adequate error code
 exit 0
