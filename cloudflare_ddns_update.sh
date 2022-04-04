@@ -234,8 +234,7 @@ case ${TYPE} in
        A) IP=${IPv4} 
           logit INFO "DNS Record type 'A' detected."
           ;;
-    AAAA) #IP=${IPv6}
-          IP='2806:1016:c:a1a6:73a2:d0a6:d8c8:a2a3'
+    AAAA) IP=${IPv6}
           logit INFO "DNS Record type 'AAAA' detected."
           ;;
        *) logit ERROR "ERROR: TYPE value is wrong: '${TYPE}'. Must be either 'A' or 'AAAA'" >&2; exit 1 ;;
