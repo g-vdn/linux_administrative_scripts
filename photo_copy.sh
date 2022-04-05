@@ -22,10 +22,10 @@
 # User defined variables #
 ##########################
 
-PHOTO_DIR='/mnt/tablet_photos/george/files/Photos' # local directory where to take the photos from
-REMOTE_NAME='tableta' # name for the cloud remote which was chosen during rclone config
-REMOTE_DIR='plm' # desired name for the folder on the remote cloud location where the photos will be copied to
-N_PIC='23' # number of pics to shufle
+PHOTO_DIR='' # local directory where to take the photos from
+REMOTE_NAME='' # name for the cloud remote which was chosen during rclone config
+REMOTE_DIR='' # desired name for the folder on the remote cloud location where the photos will be copied to
+N_PIC='' # number of pics to shufle
 
 ##################################
 # Script variables and functions #
@@ -73,7 +73,6 @@ if [[ -z "$(rclone listremotes)" ]]; then
     exit 1
 fi
 
-
 # Check if remote name exists
 if ! rclone lsd ${REMOTE_NAME}: &> /dev/null; then
     log "ERROR: Remote name not valid: '${REMOTE_NAME}', please check your input." >&2
@@ -83,16 +82,20 @@ fi
 #################
 # Actual script #
 #################
+
+NEW_INSTALL=false # set to false by default
+
 # Create remote folder for photos if not exist
 if ! rclone lsd "${REM}" &> /dev/null; then
     log "Creating remote folder for photos."
     rclone mkdir "${REM}"
+    NEW_INSTALL=true
 fi
 
-
 # Create array for old photos present on remote
-log "Storring photo names currently present on remote."
-while read -r OLD_PHOTO;
+
+${NEW_INSTALL} || log "Storring photo names currently present on remote."
+${NEW_INSTALL} || while read -r OLD_PHOTO;
 do
 	arrOLD_PHOTOS=("${arrOLD_PHOTOS[@]}" "$OLD_PHOTO");
 done <<< "$(rclone lsf ${REM})"
@@ -102,12 +105,12 @@ log "Start copying ${N_PIC} new photos from local to remote."
 find "${PHOTO_DIR}" -type f | shuf -n ${N_PIC} | while read NEW_PHOTO; do
     log "Copying ${NEW_PHOTO} to ${REM}"
     rclone copy "${NEW_PHOTO}" "${REM}"
-    printf "Done"
 done
 
 # Delete old photos from remote
-log "Deleting old photos on cloud ${REM}"
-for i in "${arrOLD_PHOTOS[@]}";
+${NEW_INSTALL} || log "Start deleting old photos from cloud ${REM}"
+${NEW_INSTALL} || for i in "${arrOLD_PHOTOS[@]}";
 do 
-	rclone deletefile "${REM}"/"$i"
+    log "Deleting ${REM}/${i}"
+	rclone deletefile "${REM}/${i}"
 done
