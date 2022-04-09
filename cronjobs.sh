@@ -22,7 +22,7 @@ ALIAS_NAME='cronjobs' # Name with which you want to run the script, after it is 
 TODAY="$(date +%d-%b-%Y)" # Date will be insterted in the header before the alias is written to bashrc file.
                           # Change date format if required, use `man date` to see other date possibilities
 
-FIRST='0' # will display a message first time the script is run. To reset, change value to 0
+FIRST='1' # will display a message first time the script is run. To reset, change value to 0
 
 ##############################################################
 # Do not modify anything under this line or script may break #
@@ -99,7 +99,7 @@ printf "\
 "- This message will not be shown on future runs. To show it again, modify FIRST variable in script to '0'."
 sep '/'
     read -p "Press ENTER to acknowledge and continue or CTRL + C to cancel"
-    sed -i "0,/FIRST='0'/ s//FIRST='1'/" $(basename ${0})
+    sed -i "0,/FIRST='0'/ s//FIRST='1'/" $(realpath ${0})
     exit 0
 fi
 
